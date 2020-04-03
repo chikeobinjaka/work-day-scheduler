@@ -1,13 +1,22 @@
 // Hour when the local work day begins, in 24-hour format
-const WORK_DAY_START = 12;
+const WORK_DAY_START = 8;
 // Hour when the local work day ends, in 24-hour format
 const WORK_DAY_END = 20;
 var currentWorkingDate; // day being displayed in yyyyMMdd format
+const LOCK_IMG = "./assets/images/icons/lock-fill.svg";
+const UNLOCK_IMG = "./assets/images/icons/unlock-fill.svg";
 
-$(document).ready(function() {
+$(document).ready(function () {
   var dateObj = new Date();
   var currentHour = dateObj.getDate();
-  currentWorkingDate = "" + renderDateInHeader();
+  renderDateInHeader();
+  currentWorkingDate = "" + dateObj.getFullYear();
+  var val = dateObj.getMonth() + 1;
+  if (val < 10) currentWorkingDate += "0";
+  currentWorkingDate += val;
+  if ((val = dateObj.getDate()) < 10) currentWorkingDate += "0";
+  currentWorkingDate += val;
+  console.log(currentWorkingDate);
   renderScheduleSection();
 });
 
@@ -112,7 +121,10 @@ function getHourDiv(tense, hourIndex, scheduleData) {
     buttonState = "disabled";
     pastInput = "past-input";
   }
-
+  if (hourIndex < 10) {
+    hourIndex = "0" + hourIndex;
+  }
+  hourIndex = currentWorkingDate + hourIndex;
   var scheduleText = scheduleData[hourIndex.toString()];
   if (scheduleText == null) {
     scheduleText = "";
@@ -125,7 +137,7 @@ function getHourDiv(tense, hourIndex, scheduleData) {
     <input class="form-control input-style ${pastInput}" type="text" readonly data-hour="${hourIndex}"  value="${scheduleText}"/>
     </div>
     <div class="col-md-1 button-column">
-      <button class="btn-primary edit-button" ${buttonState}>
+      <button class="btn-primary edit-button" ${buttonState} data-hour="${hourIndex}">
         <img src="./assets/images/icons/lock-fill.svg" width="32" height="32" data-hour="${hourIndex}" data-lock="lock" />
       </button>
     </div>
@@ -169,21 +181,14 @@ function renderScheduleSection(renderDate) {
   // get the <body> element
   var dateObj = new Date();
   if (renderDate == null) renderDate = getWorkingDateString();
-  //   if (renderDate == null) {
-  //     renderDate = "" + dateObj.getFullYear();
-  //     var month = dateObj.getMonth() + 1;
-  //     if (month < 10) renderDate += "0";
-  //     renderDate += month;
-  //     var day = dateObj.getDate();
-  //     if (day < 10) renderDate += "0";
-  //     renderDate += day;
-  //   }
-  // check localStorage for todays
   var scheduleData = localStorage.getItem(renderDate);
-  if (scheduleData == null) {
+  if (scheduleData != null) {
+    scheduleData = JSON.parse(scheduleData);
+  } else {
     scheduleData = {};
   }
 
+  console.log;
   var jqBodyEl = $("body");
   // get the schedule-section <div>
   var jqScheduleSectionEl = $("#schedule-section");
@@ -204,11 +209,11 @@ function renderScheduleSection(renderDate) {
     if (jqHourDivEl != null) jqScheduleSectionEl.append(jqHourDivEl);
   }
   // attach event listeners to the buttons and to the input
-  $(".edit-button").on("click", function() {
+  $(".edit-button").on("click", function () {
     scheduleEditButtonEventListenerCallback($(this));
   });
 
-  $(".input-style").on("click", function() {
+  $(".input-style").on("click", function () {
     scheduleInputEventListenerCallback($(this));
   });
 
@@ -218,6 +223,41 @@ function renderScheduleSection(renderDate) {
 function scheduleEditButtonEventListenerCallback(jqButtonEl) {
   console.log("Edit Button Event Callback");
   console.log(jqButtonEl.prop("tagName"));
+  // if this is chosen, it means the corresponding input can be set to editable.
+  // get the data-hour value from this element
+  var dataHourValue = jqButtonEl.attr("data-hour");
+  console.log("data-hour value for this element is " + dataHourValue);
+  // now find <input> with the same data-hour attribute value
+  var jqInputEl = $("div").find("[data-hour='" + dataHourValue + "']");
+  var jqImgEl = $("button").find("[data-hour='" + dataHourValue + "']");
+  if (jqInputEl != null && jqImgEl != null) {
+    // check status of the button
+    var lockStatus = jqImgEl.attr("data-lock");
+    if (lockStatus == "lock") {
+      jqInputEl.attr("readonly", false);
+      // set the image of the button to the open lock and set the data-lock attribute to "unlock"
+      jqImgEl.attr("src", UNLOCK_IMG);
+      jqImgEl.attr("data-lock", "unlock");
+    } else {
+      // get the value of the input
+      var inputVal = jqInputEl.val();
+      // set the input back to readonly
+      jqInputEl.attr("readonly", true);
+      // set the image to lock
+      jqImgEl.attr("src", LOCK_IMG);
+      jqImgEl.attr("data-lock", "lock");
+      // get scheuleData from localStorage
+      var scheduleData = localStorage.getItem(currentWorkingDate);
+      if (scheduleData != null) {
+        scheduleData = JSON.parse(scheduleData);
+      } else scheduleData = {};
+      // set the value for this dataHour
+      scheduleData[dataHourValue] = inputVal;
+      console.log(scheduleData);
+      // save to localStorage
+      localStorage.setItem(currentWorkingDate,JSON.stringify(scheduleData));
+    }
+  }
 }
 
 function scheduleInputEventListenerCallback(jqInputEl) {
@@ -225,7 +265,4 @@ function scheduleInputEventListenerCallback(jqInputEl) {
   console.log(jqInputEl.prop("tagName"));
   var dateObj = new Date();
   var currentHour = dateObj.getHours();
-  // check if the input is editable. If so, set the attribute "readonly" to false
-  var dateHour = jqInputEl.data("hour");
-  //if (dateHour >=)
 }
